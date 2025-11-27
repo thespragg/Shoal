@@ -67,10 +67,7 @@ impl ShoalManager {
         debug!("Generating docker compose object.");
         let compose = DockerComposeFile {
             services: docker_services,
-            networks: [self.network.clone()]
-                .iter()
-                .map(|n| (n.name.clone(), None))
-                .collect(),
+            networks: std::iter::once((self.network.name.clone(), None)).collect(),
         };
 
         debug!("Compose object generated, saving to file.");

@@ -24,7 +24,7 @@ fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-    let shoal_manager = create_shoal_manager().unwrap();
+    let shoal_manager = create_shoal_manager()?;
 
     match args.command {
         Commands::Up { stack_name } => shoal_manager.up(stack_name),

@@ -37,7 +37,7 @@ impl ComposeManager {
             info!("Started all containers successfully.");
             Ok(())
         } else {
-            error!("Failed to start cointainers.");
+            error!("Failed to start containers.");
             Err(anyhow!(
                 "Failed to start containers: exit code {:?}",
                 status.code()
@@ -61,7 +61,7 @@ impl ComposeManager {
             info!("Stopped all containers successfully.");
             Ok(())
         } else {
-            error!("Failed to stop cointainers.");
+            error!("Failed to stop containers.");
             Err(anyhow!(
                 "Failed to stop containers: exit code {:?}",
                 status.code()

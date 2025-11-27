@@ -92,8 +92,8 @@ where
         }
 
         for contents in read_yaml_files_in_directory(path)? {
-            let item: T =
-                serde_saphyr::from_str(&contents).map_err(anyhow::Error::from)?;
+            let item: T = serde_saphyr::from_str(&contents)
+                .with_context(|| format!("Failed to parse {} file", item_label))?;
             let name = name_extractor(&item);
 
             if let Some((previous_scope, _)) =
@@ -122,10 +122,18 @@ where
 }
 
 fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<String>> {
-    let files: Result<Vec<String>> = fs::read_dir(path)
+    fs::read_dir(path)
         .with_context(|| format!("Failed to read directory: {}", path.display()))?
-        .filter_map(|entry| entry.ok())
-        .map(|entry| entry.path())
+        .map(|entry| {
+            entry
+                .with_context(|| format!("Failed to read directory entry in: {}", path.display()))
+                .map(|e| e.path())
+        })
+        .filter_map(|result| {
+            result
+                .inspect_err(|e| warn!("Skipping invalid directory entry: {}", e))
+                .ok()
+        })
         .filter(|path| path.is_file())
         .filter(|path| {
             path.extension()
@@ -137,7 +145,5 @@ fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<String>> {
             fs::read_to_string(&path)
                 .with_context(|| format!("Failed to read file: {}", path.display()))
         })
-        .collect();
-
-    files
+        .collect()
 }
