@@ -1,13 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, env, fs};
 
 use crate::{
     docker::compose::build_docker_service,
-    types::{
-        docker_network::DockerNetwork,
-        docker_service::{ComposeWrapper},
-        service::Service,
-    },
+    types::{docker_network::DockerNetwork, docker_service::ComposeWrapper, service::Service},
 };
+
+use anyhow::Result;
 
 pub struct ShoalManager {
     network: DockerNetwork,
@@ -22,7 +20,7 @@ impl ShoalManager {
         }
     }
 
-    pub fn up(&self) {
+    pub fn up(&self) -> Result<()> {
         let docker_services = self
             .services
             .iter()
@@ -42,6 +40,23 @@ impl ShoalManager {
                 .collect(),
         };
 
-        println!("{}", serde_saphyr::to_string(&compose).unwrap());
+        let temp_dir = env::temp_dir().join("shoal");
+        if !temp_dir.exists() {
+            fs::create_dir(&temp_dir)?;
+        }
+
+        let compose_dir = temp_dir.join("current");
+        if !compose_dir.exists() {
+            fs::create_dir(&compose_dir)?;
+        }
+
+        println!("{:?}", temp_dir);
+        println!("{:?}", compose_dir);
+        fs::write(
+            compose_dir.join("docker-compose.generated.yml"),
+            serde_saphyr::to_string(&compose).unwrap(),
+        )?;
+
+        Ok(())
     }
 }
