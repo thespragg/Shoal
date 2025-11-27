@@ -4,9 +4,12 @@ use crate::{
 };
 use anyhow::Result;
 
+mod compose;
 mod config;
 mod docker;
 mod manager;
+mod override_handler;
+mod stack;
 mod types;
 
 pub fn create_shoal_manager() -> Result<ShoalManager> {
