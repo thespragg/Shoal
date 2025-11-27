@@ -1,0 +1,17 @@
+services:
+  service-1:
+    container_name: service-1
+    image: abhin4v/hastatic:latest
+    ports:
+      - "3000"
+    networks:
+      - TestNetwork
+  service-2:
+    container_name: service-2
+    image: abhin4v/hastatic:latest
+    ports:
+      - "3000"
+    networks:
+      - TestNetwork
+networks:
+  TestNetwork: null

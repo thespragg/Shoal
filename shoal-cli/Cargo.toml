@@ -1,0 +1,8 @@
+[package]
+name = "shoal-cli"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+shoal-core = { path = "../shoal-core" }
+tracing-subscriber = "0.3.20"
