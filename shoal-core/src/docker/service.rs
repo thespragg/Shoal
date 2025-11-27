@@ -1,13 +1,11 @@
 use crate::types::{docker_service::DockerService, service::Service};
 
-/// Build a docker service definition scoped to the provided stack name so that
-/// container names remain unique per stack.
-pub fn build_docker_service(service: &Service, stack_name: &str, network: String) -> DockerService {
+pub fn build_docker_service(service: &Service, stack_name: &str, network: &str) -> DockerService {
     DockerService {
         container_name: format!("{}-{}", stack_name, service.service_name),
         image: Some(service.source.location.clone()),
         ports: Some(service.internal_ports.clone()),
-        networks: Some([network].to_vec()),
+        networks: Some(vec![network.to_string()]),
         build_context: None,
         dockerfile: None,
         entrypoint: None,

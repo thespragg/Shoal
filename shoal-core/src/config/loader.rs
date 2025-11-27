@@ -25,7 +25,7 @@ impl std::fmt::Display for FileScope {
     }
 }
 
-pub fn load_stacks() -> Result<Vec<Stack>> {
+pub fn load_stacks() -> Result<HashMap<String, Stack>> {
     let local_path = env::current_dir()?.join("stacks");
     let global_path = dirs::home_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
@@ -45,7 +45,7 @@ pub fn load_stacks() -> Result<Vec<Stack>> {
     )
 }
 
-pub fn load_services() -> Result<Vec<Service>> {
+pub fn load_services() -> Result<HashMap<String, Service>> {
     let local_path = env::current_dir()?.join("services");
     let global_path = dirs::home_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
@@ -71,7 +71,7 @@ fn load_items<T, F>(
     item_label: &'static str,
     override_message: &'static str,
     name_extractor: F,
-) -> Result<Vec<T>>
+) -> Result<HashMap<String, T>>
 where
     T: DeserializeOwned,
     F: Fn(&T) -> String,
@@ -91,9 +91,9 @@ where
             continue;
         }
 
-        for contents in read_yaml_files_in_directory(path)? {
+        for (file_path, contents) in read_yaml_files_in_directory(path)? {
             let item: T = serde_saphyr::from_str(&contents)
-                .with_context(|| format!("Failed to parse {} file", item_label))?;
+                .with_context(|| format!("Failed to parse {} file: {}", item_label, file_path.display()))?;
             let name = name_extractor(&item);
 
             if let Some((previous_scope, _)) =
@@ -111,9 +111,9 @@ where
         }
     }
 
-    let items: Vec<T> = items_by_name
+    let items: HashMap<String, T> = items_by_name
         .into_iter()
-        .map(|(_, (_, item))| item)
+        .map(|(name, (_, item))| (name, item))
         .collect();
 
     debug!("Identified {} unique {} files", items.len(), item_label);
@@ -121,7 +121,7 @@ where
     Ok(items)
 }
 
-fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<String>> {
+fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<(PathBuf, String)>> {
     fs::read_dir(path)
         .with_context(|| format!("Failed to read directory: {}", path.display()))?
         .map(|entry| {
@@ -134,16 +134,18 @@ fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<String>> {
                 .inspect_err(|e| warn!("Skipping invalid directory entry: {}", e))
                 .ok()
         })
-        .filter(|path| path.is_file())
-        .filter(|path| {
-            path.extension()
+        .filter(|file_path| file_path.is_file())
+        .filter(|file_path| {
+            file_path
+                .extension()
                 .and_then(|e| e.to_str())
                 .map(|e| e == "yaml" || e == "yml")
                 .unwrap_or(false)
         })
-        .map(|path| -> Result<String> {
-            fs::read_to_string(&path)
-                .with_context(|| format!("Failed to read file: {}", path.display()))
+        .map(|file_path| -> Result<(PathBuf, String)> {
+            let contents = fs::read_to_string(&file_path)
+                .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
+            Ok((file_path, contents))
         })
         .collect()
 }

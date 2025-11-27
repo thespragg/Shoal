@@ -13,12 +13,12 @@ use tracing::{debug, error};
 
 pub struct ShoalManager {
     network: DockerNetwork,
-    services: Vec<Service>,
-    stacks: Vec<Stack>,
+    services: HashMap<String, Service>,
+    stacks: HashMap<String, Stack>,
 }
 
 impl ShoalManager {
-    pub fn new(services: Vec<Service>, stacks: Vec<Stack>) -> ShoalManager {
+    pub fn new(services: HashMap<String, Service>, stacks: HashMap<String, Stack>) -> Self {
         ShoalManager {
             services,
             network: DockerNetwork::new("TestNetwork".to_string()),
@@ -31,38 +31,42 @@ impl ShoalManager {
 
         let stack = self
             .stacks
-            .iter()
-            .find(|s| s.name == stack_name)
-            .ok_or(anyhow::anyhow!(
-                "Failed to find a stack with the name {}.",
+            .get(&stack_name)
+            .ok_or_else(|| anyhow::anyhow!(
+                "Failed to find a stack with the name '{}'.",
                 stack_name
             ))?;
 
-        // TODO:: Need to get dependancy tree and flatten for proper services list
+        // TODO:: Need to get dependency tree and flatten for proper services list
 
         debug!("Finding docker services for stack {:?}.", stack.services);
-        let docker_services = self
+        
+        let missing: Vec<&String> = stack.services
+            .iter()
+            .filter(|service_name| !self.services.contains_key(*service_name))
+            .collect();
+        
+        if !missing.is_empty() {
+            error!("Stack '{}' references non-existent services: {:?}", stack_name, missing);
+            return Err(anyhow!(
+                "Stack '{}' references non-existent services: {:?}",
+                stack_name,
+                missing
+            ));
+        }
+        
+        let docker_services: HashMap<String, _> = stack
             .services
             .iter()
-            .filter(|s| stack.services.contains(&s.service_name))
-            .map(|service| {
+            .map(|service_name| {
+                let service = self.services.get(service_name)
+                    .expect("Service should exist (validated above)");
                 (
-                    service.service_name.clone(),
-                    build_docker_service(service, &stack_name, self.network.name.clone()),
+                    service_name.clone(),
+                    build_docker_service(service, &stack_name, &self.network.name),
                 )
             })
-            .collect::<HashMap<_, _>>();
-
-        if docker_services.len() != stack.services.len() {
-            let missing: Vec<String> = stack
-                .services
-                .iter()
-                .filter(|item| !docker_services.contains_key(*item))
-                .cloned()
-                .collect();
-            error!("Not all services for the stack could be found, missing: {:?}", missing);
-            return Err(anyhow::anyhow!("Not all services for the stack could be found."));
-        }
+            .collect();
 
         debug!("Generating docker compose object.");
         let compose = DockerComposeFile {
