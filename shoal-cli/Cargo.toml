@@ -4,5 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.53", features = ["derive"] }
 shoal-core = { path = "../shoal-core" }
 tracing-subscriber = "0.3.20"
