@@ -12,72 +12,77 @@ use anyhow::{Result, anyhow, bail};
 use tracing::{debug, error};
 
 pub struct ShoalManager {
-    network: DockerNetwork,
     services: HashMap<String, Service>,
     stacks: HashMap<String, Stack>,
 }
 
 impl ShoalManager {
     pub fn new(services: HashMap<String, Service>, stacks: HashMap<String, Stack>) -> Self {
-        ShoalManager {
-            services,
-            network: DockerNetwork::new("TestNetwork".to_string()),
-            stacks,
-        }
+        ShoalManager { services, stacks }
     }
 
     pub fn up(&self, stack_name: impl Into<String>) -> Result<()> {
         let stack_name = stack_name.into();
 
-        let stack = self
-            .stacks
-            .get(&stack_name)
-            .ok_or_else(|| anyhow::anyhow!(
-                "Failed to find a stack with the name '{}'.",
-                stack_name
-            ))?;
+        let stack = self.stacks.get(&stack_name).ok_or_else(|| {
+            anyhow::anyhow!("Failed to find a stack with the name '{}'.", stack_name)
+        })?;
 
         // TODO:: Need to get dependency tree and flatten for proper services list
 
         debug!("Finding docker services for stack {:?}.", stack.services);
-        
-        let missing: Vec<&String> = stack.services
+
+        let missing: Vec<&String> = stack
+            .services
             .iter()
             .filter(|service_name| !self.services.contains_key(*service_name))
             .collect();
-        
+
         if !missing.is_empty() {
-            error!("Stack '{}' references non-existent services: {:?}", stack_name, missing);
+            error!(
+                "Stack '{}' references non-existent services: {:?}",
+                stack_name, missing
+            );
             return Err(anyhow!(
                 "Stack '{}' references non-existent services: {:?}",
                 stack_name,
                 missing
             ));
         }
-        
+
+        let network_name = format!("{}-network", stack_name.clone());
+
         let docker_services: HashMap<String, _> = stack
             .services
             .iter()
             .map(|service_name| {
-                let service = self.services.get(service_name)
+                let service = self
+                    .services
+                    .get(service_name)
                     .expect("Service should exist (validated above)");
                 (
                     service_name.clone(),
-                    build_docker_service(service, &stack_name, &self.network.name),
+                    build_docker_service(service, &stack_name, &network_name),
                 )
             })
             .collect();
 
+        let mut networks = HashMap::new();
+        networks.insert(
+            network_name.clone(),
+            Some(DockerNetwork::new(network_name))
+        );
         debug!("Generating docker compose object.");
         let compose = DockerComposeFile {
             services: docker_services,
-            networks: std::iter::once((self.network.name.clone(), None)).collect(),
+            networks,
         };
 
         debug!("Compose object generated, saving to file.");
         let compose_path = ensure_compose_path(&stack_name)?;
         let compose_yaml = serde_saphyr::to_string(&compose)?;
         fs::write(&compose_path, compose_yaml)?;
+        debug!("Compose saved to {:?}", compose_path);
 
         let compose_manager = ComposeManager::new(compose_path, stack_name);
         compose_manager.up()?;
