@@ -50,8 +50,6 @@ impl ShoalManager {
             fs::create_dir(&compose_dir)?;
         }
 
-        println!("{:?}", temp_dir);
-        println!("{:?}", compose_dir);
         fs::write(
             compose_dir.join("docker-compose.generated.yml"),
             serde_saphyr::to_string(&compose).unwrap(),

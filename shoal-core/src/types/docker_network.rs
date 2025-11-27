@@ -9,7 +9,7 @@ pub struct DockerNetwork {
 impl DockerNetwork{
     pub fn new(name: String) -> DockerNetwork{
         DockerNetwork {
-                name: name,
+                name,
             }
     }
 }
