@@ -1,4 +1,7 @@
-use crate::{config::loader::load_services, manager::ShoalManager};
+use crate::{
+    config::loader::{load_services, load_stacks},
+    manager::ShoalManager,
+};
 use anyhow::Result;
 
 mod config;
@@ -8,6 +11,7 @@ mod types;
 
 pub fn create_shoal_manager() -> Result<ShoalManager> {
     let services = load_services()?;
+    let stacks = load_stacks()?;
 
-    Ok(ShoalManager::new(services))
+    Ok(ShoalManager::new(services, stacks))
 }

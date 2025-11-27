@@ -2,7 +2,10 @@ use std::{collections::HashMap, fs, path::PathBuf};
 
 use crate::{
     docker::{orchestrator::ComposeManager, service::build_docker_service},
-    types::{docker_network::DockerNetwork, docker_service::DockerComposeFile, service::Service},
+    types::{
+        docker_network::DockerNetwork, docker_service::DockerComposeFile, service::Service,
+        stack::Stack,
+    },
 };
 
 use anyhow::{Result, anyhow, bail};
@@ -11,22 +14,35 @@ use tracing::debug;
 pub struct ShoalManager {
     network: DockerNetwork,
     services: Vec<Service>,
+    stacks: Vec<Stack>,
 }
 
 impl ShoalManager {
-    pub fn new(services: Vec<Service>) -> ShoalManager {
+    pub fn new(services: Vec<Service>, stacks: Vec<Stack>) -> ShoalManager {
         ShoalManager {
             services,
             network: DockerNetwork::new("TestNetwork".to_string()),
+            stacks,
         }
     }
 
     pub fn up(&self, stack_name: impl Into<String>) -> Result<()> {
         let stack_name = stack_name.into();
-        debug!("Finding docker services.");
+
+        let stack = self
+            .stacks
+            .iter()
+            .find(|s| s.name == stack_name)
+            .ok_or(anyhow::anyhow!(
+                "Failed to find a stack with the name {}.",
+                stack_name
+            ))?;
+
+        debug!("Finding docker services for stack {:?}.", stack.services);
         let docker_services = self
             .services
             .iter()
+            .filter(|s| stack.services.contains(&s.service_name))
             .map(|service| {
                 (
                     service.service_name.clone(),
