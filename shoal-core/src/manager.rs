@@ -9,7 +9,7 @@ use crate::{
 };
 
 use anyhow::{Result, anyhow, bail};
-use tracing::debug;
+use tracing::{debug, error};
 
 pub struct ShoalManager {
     network: DockerNetwork,
@@ -38,6 +38,8 @@ impl ShoalManager {
                 stack_name
             ))?;
 
+        // TODO:: Need to get dependancy tree and flatten for proper services list
+
         debug!("Finding docker services for stack {:?}.", stack.services);
         let docker_services = self
             .services
@@ -50,6 +52,17 @@ impl ShoalManager {
                 )
             })
             .collect::<HashMap<_, _>>();
+
+        if docker_services.len() != stack.services.len() {
+            let missing: Vec<String> = stack
+                .services
+                .iter()
+                .filter(|item| !docker_services.contains_key(*item))
+                .cloned()
+                .collect();
+            error!("Not all services for the stack could be found, missing: {:?}", missing);
+            return Err(anyhow::anyhow!("Not all services for the stack could be found."));
+        }
 
         debug!("Generating docker compose object.");
         let compose = DockerComposeFile {
