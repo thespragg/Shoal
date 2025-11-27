@@ -29,7 +29,7 @@ pub struct DockerService {
     pub command: Option<Vec<String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub environment: Option<Vec<(String, String)>>,
+    pub environment: Option<HashMap<String, String>>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ports: Option<Vec<String>>,

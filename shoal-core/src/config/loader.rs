@@ -8,7 +8,7 @@ use std::{
 };
 use tracing::{debug, warn};
 
-use crate::types::{service::Service, stack::Stack};
+use crate::types::{service::Service, stack::Stack, stack_override::StackOverride};
 
 #[derive(Clone, Copy, Debug)]
 enum FileScope {
@@ -23,6 +23,26 @@ impl std::fmt::Display for FileScope {
             FileScope::Global => write!(f, "global"),
         }
     }
+}
+
+pub fn load_overrides() -> Result<HashMap<String, StackOverride>> {
+    let local_path = env::current_dir()?.join("overrides");
+    let global_path = dirs::home_dir()
+        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
+        .join(".shoal/overrides");
+
+    let search_paths: [(FileScope, PathBuf); 2] = [
+        (FileScope::Global, global_path),
+        (FileScope::Local, local_path),
+    ];
+
+    load_items(
+        &search_paths,
+        "Overrides",
+        "overrides",
+        "Stack override detected.",
+        |stack_override: &StackOverride| format!("{}-{}", &stack_override.stack, &stack_override.name),
+    )
 }
 
 pub fn load_stacks() -> Result<HashMap<String, Stack>> {
@@ -40,7 +60,7 @@ pub fn load_stacks() -> Result<HashMap<String, Stack>> {
         &search_paths,
         "Stacks",
         "stack",
-        "Stack override detected; using local definition.",
+        "Local version of stack detected; using local definition.",
         |stack: &Stack| stack.name.clone(),
     )
 }
@@ -92,13 +112,16 @@ where
         }
 
         for (file_path, contents) in read_yaml_files_in_directory(path)? {
-            let item: T = serde_saphyr::from_str(&contents)
-                .with_context(|| format!("Failed to parse {} file: {}", item_label, file_path.display()))?;
+            let item: T = serde_saphyr::from_str(&contents).with_context(|| {
+                format!(
+                    "Failed to parse {} file: {}",
+                    item_label,
+                    file_path.display()
+                )
+            })?;
             let name = name_extractor(&item);
 
-            if let Some((previous_scope, _)) =
-                items_by_name.insert(name.clone(), (*scope, item))
-            {
+            if let Some((previous_scope, _)) = items_by_name.insert(name.clone(), (*scope, item)) {
                 warn!(
                     service = %name,
                     previous = %previous_scope,
