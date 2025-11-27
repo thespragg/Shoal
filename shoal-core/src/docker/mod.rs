@@ -1,2 +1,2 @@
-pub mod service;
 pub mod orchestrator;
+pub mod service;

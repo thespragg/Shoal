@@ -10,10 +10,14 @@ pub enum LocationType {
 
 impl fmt::Display for LocationType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            LocationType::Image => "Image",
-            LocationType::Local => "Local",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                LocationType::Image => "Image",
+                LocationType::Local => "Local",
+            }
+        )
     }
 }
 

@@ -5,9 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::types::docker_network::DockerNetwork;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct DockerComposeFile{
+pub struct DockerComposeFile {
     pub services: HashMap<String, DockerService>,
-    pub networks: HashMap<String, Option<DockerNetwork>>
+    pub networks: HashMap<String, Option<DockerNetwork>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -15,10 +15,10 @@ pub struct DockerService {
     pub container_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub build_context: Option<String>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dockerfile: Option<String>,
 

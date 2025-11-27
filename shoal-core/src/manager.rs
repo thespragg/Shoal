@@ -1,11 +1,11 @@
-use std::{collections::HashMap, env, fs};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use crate::{
     docker::{orchestrator::ComposeManager, service::build_docker_service},
     types::{docker_network::DockerNetwork, docker_service::DockerComposeFile, service::Service},
 };
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use tracing::debug;
 
 pub struct ShoalManager {
@@ -22,6 +22,7 @@ impl ShoalManager {
     }
 
     pub fn up(&self, stack_name: impl Into<String>) -> Result<()> {
+        let stack_name = stack_name.into();
         debug!("Finding docker services.");
         let docker_services = self
             .services
@@ -29,7 +30,7 @@ impl ShoalManager {
             .map(|service| {
                 (
                     service.service_name.clone(),
-                    build_docker_service(service, self.network.name.clone()),
+                    build_docker_service(service, &stack_name, self.network.name.clone()),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -44,43 +45,52 @@ impl ShoalManager {
         };
 
         debug!("Compose object generated, saving to file.");
-        let compose_path = get_or_create_compose_dir(stack_name)?;
-        fs::write(&compose_path, serde_saphyr::to_string(&compose).unwrap())?;
+        let compose_path = ensure_compose_path(&stack_name)?;
+        let compose_yaml = serde_saphyr::to_string(&compose)?;
+        fs::write(&compose_path, compose_yaml)?;
 
-        let compose_manager = ComposeManager::new(compose_path);
+        let compose_manager = ComposeManager::new(compose_path, stack_name);
         compose_manager.up()?;
 
         Ok(())
     }
 
     pub fn down(&self, stack_name: impl Into<String>) -> Result<()> {
-        let compose_path = get_or_create_compose_dir(stack_name)?;
+        let stack_name = stack_name.into();
+        let compose_path = compose_file_path(&stack_name)?;
+        if !compose_path.exists() {
+            bail!(
+                "Stack {} is not running; compose file missing at {:?}",
+                stack_name,
+                compose_path
+            );
+        }
 
-        let compose_manager = ComposeManager::new(compose_path);
+        let compose_manager = ComposeManager::new(compose_path, stack_name);
         compose_manager.down()?;
         Ok(())
     }
 }
 
-fn get_or_create_compose_dir(stack_name: impl Into<String>) -> Result<String> {
-    let temp_dir = env::temp_dir().join("shoal");
-    if !temp_dir.exists() {
-        fs::create_dir(&temp_dir)?;
+fn ensure_compose_path(stack_name: &str) -> Result<PathBuf> {
+    let stack_dir = stack_dir(stack_name)?;
+    if !stack_dir.exists() {
+        fs::create_dir_all(&stack_dir)?;
     }
 
-    let compose_dir = temp_dir.join("stacks");
-    if !compose_dir.exists() {
-        fs::create_dir(&compose_dir)?;
-    }
+    Ok(stack_dir.join("docker-compose.generated.yml"))
+}
 
-    let stack_folder = compose_dir.join(stack_name.into());
-    if !stack_folder.exists() {
-        fs::create_dir(&stack_folder)?;
-    }
-    
-    let compose_file = stack_folder.join("docker-compose.generated.yml");
-    compose_file
-        .into_os_string()
-        .into_string()
-        .map_err(|path| anyhow!("compose path not valid UTF-8: {:?}", path))
+fn compose_file_path(stack_name: &str) -> Result<PathBuf> {
+    Ok(stack_dir(stack_name)?.join("docker-compose.generated.yml"))
+}
+
+fn stack_dir(stack_name: &str) -> Result<PathBuf> {
+    let base_dir = dirs::data_local_dir()
+        .ok_or_else(|| anyhow!("Could not determine local data directory"))?
+        .join("shoal")
+        .join("stacks")
+        .join(stack_name);
+
+    Ok(base_dir)
 }

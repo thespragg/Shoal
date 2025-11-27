@@ -1,7 +1,7 @@
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use shoal_core::{self, create_shoal_manager};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use anyhow::Result;
 
 #[derive(Parser, Debug)]
 #[command(name = "shoal")]

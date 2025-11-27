@@ -1,8 +1,11 @@
 use anyhow::{Context, Result};
-use tracing::{debug, warn};
 use std::{
-    collections::HashMap, env, fs::{self}, path::Path
+    collections::HashMap,
+    env,
+    fs::{self},
+    path::Path,
 };
+use tracing::{debug, warn};
 
 use crate::types::service::Service;
 
@@ -48,10 +51,13 @@ pub fn load_services() -> Result<Vec<Service>> {
         }
 
         for contents in read_yaml_files_in_directory(path)? {
-            let service: Service = serde_saphyr::from_str(&contents).map_err(anyhow::Error::from)?;
+            let service: Service =
+                serde_saphyr::from_str(&contents).map_err(anyhow::Error::from)?;
             let name = service.service_name.clone();
 
-            if let Some((previous_scope, _)) = services_by_name.insert(name.clone(), (*scope, service)) {
+            if let Some((previous_scope, _)) =
+                services_by_name.insert(name.clone(), (*scope, service))
+            {
                 warn!(
                     service = %name,
                     previous = %previous_scope,
@@ -74,7 +80,6 @@ pub fn load_services() -> Result<Vec<Service>> {
     Ok(services)
 }
 
-
 fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<String>> {
     let files: Result<Vec<String>> = fs::read_dir(path)
         .with_context(|| format!("Failed to read directory: {}", path.display()))?
@@ -88,10 +93,10 @@ fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<String>> {
                 .unwrap_or(false)
         })
         .map(|path| -> Result<String> {
-         fs::read_to_string(&path)
+            fs::read_to_string(&path)
                 .with_context(|| format!("Failed to read file: {}", path.display()))
         })
         .collect();
-    
+
     files
 }
