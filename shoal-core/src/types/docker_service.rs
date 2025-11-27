@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::types::docker_network::DockerNetwork;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ComposeWrapper{
+pub struct DockerComposeFile{
     pub services: HashMap<String, DockerService>,
     pub networks: HashMap<String, Option<DockerNetwork>>
 }

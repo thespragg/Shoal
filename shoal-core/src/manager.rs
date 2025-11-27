@@ -1,8 +1,8 @@
 use std::{collections::HashMap, env, fs};
 
 use crate::{
-    docker::compose::build_docker_service,
-    types::{docker_network::DockerNetwork, docker_service::ComposeWrapper, service::Service},
+    docker::{orchestrator::ComposeManager, service::build_docker_service},
+    types::{docker_network::DockerNetwork, docker_service::DockerComposeFile, service::Service},
 };
 
 use anyhow::Result;
@@ -32,7 +32,7 @@ impl ShoalManager {
             })
             .collect::<HashMap<_, _>>();
 
-        let compose = ComposeWrapper {
+        let compose = DockerComposeFile {
             services: docker_services,
             networks: [self.network.clone()]
                 .iter()
@@ -50,10 +50,12 @@ impl ShoalManager {
             fs::create_dir(&compose_dir)?;
         }
 
-        fs::write(
-            compose_dir.join("docker-compose.generated.yml"),
-            serde_saphyr::to_string(&compose).unwrap(),
-        )?;
+        let compose_file = compose_dir.join("docker-compose.generated.yml");
+        fs::write(&compose_file, serde_saphyr::to_string(&compose).unwrap())?;
+
+        let path = compose_file.into_os_string().into_string().unwrap();
+        let compose_manager = ComposeManager::new(path);
+        compose_manager.up()?;
 
         Ok(())
     }
