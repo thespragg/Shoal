@@ -1,6 +1,6 @@
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/0675c3a6-a7d4-4886-aced-fec95db518b9" alt="Shoal illustration" width="300" />
+  <img src="https://github.com/user-attachments/assets/0675c3a6-a7d4-4886-aced-fec95db518b9" alt="Shoal illustration" width="200" />
 </p>
 
 <h1 align="center">Shoal</h1>
