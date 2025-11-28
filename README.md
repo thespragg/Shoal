@@ -69,9 +69,8 @@ mkdir services && mkdir stacks && mkdir overrides
 name: shoal-frontend
 source: image # can be Local
 image: nginxdemos/hello:latest # When running from local `path` must be defined.
-hard_dependencies:
+dependencies:
   - shoal-backend-1
-soft_dependencies:
   - shoal-backend-2
 internal_ports:
   - 80
@@ -80,9 +79,8 @@ internal_ports:
 name: shoal-backend-1
 source: image
 image: httpd:latest
-hard_dependencies:
+dependencies:
   - postgres
-soft_dependencies:
   - subscription-provider
 internal_ports:
   - 5000
@@ -91,7 +89,7 @@ internal_ports:
 name: shoal-backend-2
 source: image
 image: httpd:latest
-hard_dependencies:
+dependencies:
   - redis
 internal_ports:
   - 5000
@@ -100,7 +98,7 @@ internal_ports:
 name: subscription-provider
 source: image
 image: httpd:latest
-hard_dependencies:
+dependencies:
   - postgres
 internal_ports:
   - 5000
@@ -134,7 +132,7 @@ Once the services have been defined, you can build stacks. Dependencies are load
 name: full-stack
 description: A stack containing all of the services
 services:
-  - shoal-frontend # all soft & hard dependencies will be satisfied
+  - shoal-frontend # all dependencies will be satisfied
 overrides:
   shoal-backend-1:
     env:
@@ -151,7 +149,7 @@ description: A stack with backend-2 excluded
 services:
   - shoal-frontend
 exclude:
-  - shoal-backend-2 # shoal-backend-2 is a soft dependancy and can be excluded along with its dependencies
+  - shoal-backend-2 # shoal-backend-2 and its dependencies will be ignored
 overrides:
   shoal-backend-1:
     env:
