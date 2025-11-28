@@ -11,7 +11,7 @@
 
 ## What is Shoal
 
-Shoal is a simple tool to define, manage, and run multi-service stacks using Docker Compose — with support for dependencies, local or remote service sources, and per-environment or per-developer overrides. 
+Shoal is a simple tool to define, manage, and run multi-service stacks using Docker Compose. Including support for dependencies, local or remote service sources, and per-environment or per-developer overrides. 
 
 ## Who is Shoal for
 
@@ -40,7 +40,8 @@ Shoal was built for teams working with many services, with frequent context-swit
 - Build stacks with dependent services
 - Manage environment variables, internal ports, and custom Dockerfiles  
 - Apply overrides for custom setups
-- Easy CLI-based stack management  
+- Easy CLI-based stack management
+- Docker & Docker-compose under the hood, easy to debug and use the power of docker once the stack is running 
 
 ## Installation
 
