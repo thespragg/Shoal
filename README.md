@@ -41,7 +41,9 @@ Shoal was built for teams working with many services, with frequent context-swit
 - Manage environment variables, internal ports, and custom Dockerfiles  
 - Apply overrides for custom setups
 - Easy CLI-based stack management
-- Docker & Docker-compose under the hood, easy to debug and use the power of docker once the stack is running 
+- Docker & Docker-compose under the hood, easy to debug and use the power of docker once the stack is running
+- (Coming soon) Data seeding
+- (Coming soon) Stub generation
 
 ## Installation
 
