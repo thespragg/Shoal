@@ -21,7 +21,7 @@ jobs:
       - name: Get current version
         id: current_version
         run: |
-          VERSION=$(grep '^version = ' shoal-cli/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $VERSION"
 
@@ -29,7 +29,7 @@ jobs:
         id: main_version
         run: |
           git fetch origin main
-          MAIN_VERSION=$(git show origin/main:shoal-cli/Cargo.toml | grep '^version = ' | head -1 | sed 's/version = "\(.*\)"/\1/')
+          MAIN_VERSION=$(git show origin/main:Cargo.toml | grep '^version = ' | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "version=$MAIN_VERSION" >> $GITHUB_OUTPUT
           echo "Main branch version: $MAIN_VERSION"
 
@@ -54,11 +54,11 @@ jobs:
           script: |
             const body = `## Version Not Bumped
             
-            This PR does not include a version bump in \`shoal-cli/Cargo.toml\`.
+            This PR does not include a version bump in \`Cargo.toml\`.
             
             **Current version:** \`${{ steps.current_version.outputs.version }}\`
             
-            If this PR should trigger a new release, please update the version in \`shoal-cli/Cargo.toml\`.
+            If this PR should trigger a new release, please update the version in \`Cargo.toml\`.
             
             If this is a documentation change, refactor, or other non-release change, you can safely ignore this message.`;
             
