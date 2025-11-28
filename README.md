@@ -132,7 +132,7 @@ Once the services have been defined, you can build stacks. Dependencies are load
 name: full-stack
 description: A stack containing all of the services
 services:
-  - shoal-frontend # all soft & hard dependencies will be satisfied
+  - shoal-frontend # all dependencies will be satisfied
 overrides:
   shoal-backend-1:
     env:
