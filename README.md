@@ -6,7 +6,7 @@
 <h1 align="center">Shoal</h1>
 <p align="center">
   <a href="https://github.com/thespragg/shoal/actions"><img src="https://img.shields.io/github/actions/workflow/status/thespragg/shoal/ci.yml?branch=main" alt="build status"></a>
-  <img src="https://img.shields.io/badge/license-GPL-blue.svg" alt="license">
+  <img src="https://img.shields.io/badge/license-AGPL-blue.svg" alt="license">
 </p>
 
 ## What is Shoal
@@ -197,7 +197,3 @@ shoal up full-stack.trace-logging
 ```
 
 Overrides can be stored in the repo for shared configurations, or in `~/.shoal/overrides` for developer-specific ones. All service fields can be overridden, whether you need to mount extra volumes, expose more ports, or change any other configuration.
-
-## License
-
-GPL-3.0

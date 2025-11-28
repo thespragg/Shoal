@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "shoal-core",
+    "shoal-cli"
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.0.1"
+authors = ["shoal@thespragg.dev"]
+edition = "2021"
+license = "AGPL"
+repository = "https://github.com/thespragg/shoal"

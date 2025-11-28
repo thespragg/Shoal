@@ -512,8 +512,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "shoal-cli"
-version = "0.1.0"
+name = "shoal"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -523,7 +523,7 @@ dependencies = [
 
 [[package]]
 name = "shoal-core"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "dirs",

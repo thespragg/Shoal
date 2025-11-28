@@ -1,0 +1,139 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+      should_release: ${{ steps.check_tag.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from Cargo.toml
+        id: get_version
+        run: |
+          VERSION=$(grep '^version = ' shoal-cli/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Found version: $VERSION"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            echo "Tag v$VERSION already exists, skipping release"
+          else
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "Tag v$VERSION does not exist, will create release"
+          fi
+
+  build:
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: shoal-cli
+            asset_name: shoal-cli-linux-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact_name: shoal-cli
+            asset_name: shoal-cli-macos-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: shoal-cli.exe
+            asset_name: shoal-cli-windows-x86_64.exe
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Prepare artifact
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} artifacts/${{ matrix.asset_name }}
+          
+      - name: Generate checksum
+        shell: bash
+        run: |
+          cd artifacts
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            certutil -hashfile ${{ matrix.asset_name }} SHA256 | grep -v "hash" | grep -v "CertUtil" > ${{ matrix.asset_name }}.sha256
+          else
+            shasum -a 256 ${{ matrix.asset_name }} > ${{ matrix.asset_name }}.sha256
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: artifacts/*
+
+  release:
+    needs: [check-version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-files
+          find release-artifacts -type f -exec cp {} release-files/ \;
+          ls -lah release-files/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: Release v${{ needs.check-version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            release-files/*
+            README.md
+            LICENSE
+          body: |
+            ## Release v${{ needs.check-version.outputs.version }}
+            
+            ### Downloads
+            Download the appropriate binary for your platform below.
+            
+            ### Checksums
+            SHA256 checksums are provided for each binary to verify integrity.
+            
+            ### Installation
+            1. Download the binary for your platform
+            2. Verify the checksum (optional but recommended)
+            3. Make it executable: `chmod +x shoal` (Unix-like systems)
+            4. Move to your PATH: `mv shoal /usr/local/bin/shoal`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

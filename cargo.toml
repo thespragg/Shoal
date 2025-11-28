@@ -1,7 +1,0 @@
-[workspace]
-members = [
-    "shoal-core",
-    "shoal-cli"
-]
-resolver = "3"
-

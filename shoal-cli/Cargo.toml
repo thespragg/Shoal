@@ -1,7 +1,7 @@
 [package]
-name = "shoal-cli"
-version = "0.1.0"
+name = "shoal"
 edition = "2024"
+version.workspace = true
 
 [dependencies]
 anyhow = "1.0.100"

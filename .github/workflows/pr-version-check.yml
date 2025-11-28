@@ -1,0 +1,128 @@
+name: PR Version Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  check-version-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get current version
+        id: current_version
+        run: |
+          VERSION=$(grep '^version = ' shoal-cli/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $VERSION"
+
+      - name: Get main branch version
+        id: main_version
+        run: |
+          git fetch origin main
+          MAIN_VERSION=$(git show origin/main:shoal-cli/Cargo.toml | grep '^version = ' | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "version=$MAIN_VERSION" >> $GITHUB_OUTPUT
+          echo "Main branch version: $MAIN_VERSION"
+
+      - name: Check if version changed
+        id: version_check
+        run: |
+          CURRENT="${{ steps.current_version.outputs.version }}"
+          MAIN="${{ steps.main_version.outputs.version }}"
+          
+          if [ "$CURRENT" = "$MAIN" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Version has NOT been bumped"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Version has been bumped: $MAIN -> $CURRENT"
+          fi
+
+      - name: Comment on PR (no version bump)
+        if: steps.version_check.outputs.changed == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## Version Not Bumped
+            
+            This PR does not include a version bump in \`shoal-cli/Cargo.toml\`.
+            
+            **Current version:** \`${{ steps.current_version.outputs.version }}\`
+            
+            If this PR should trigger a new release, please update the version in \`shoal-cli/Cargo.toml\`.
+            
+            If this is a documentation change, refactor, or other non-release change, you can safely ignore this message.`;
+            
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              comment.body.includes('Version Not Bumped')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Comment on PR (version bumped)
+        if: steps.version_check.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## Version Bumped
+            
+            Version has been updated: \`${{ steps.main_version.outputs.version }}\` → \`${{ steps.current_version.outputs.version }}\`
+            
+            A new release will be created when this PR is merged to main.`;
+            
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && 
+              (comment.body.includes('Version Not Bumped') || comment.body.includes('Version Bumped'))
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
