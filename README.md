@@ -195,3 +195,6 @@ shoal up full-stack.trace-logging
 ```
 
 Overrides can be stored in the repo for shared configurations, or in `~/.shoal/overrides` for developer-specific ones. All service fields can be overridden, whether you need to mount extra volumes, expose more ports, or change any other configuration.
+
+## Todo
+- Most of this readme...
