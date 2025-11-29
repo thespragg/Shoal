@@ -159,7 +159,6 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
 
         let mut result = Vec::new();
         for file_path in entries {
-            // Check if it's a YAML file
             let is_yaml = file_path
                 .extension()
                 .and_then(|e| e.to_str())
