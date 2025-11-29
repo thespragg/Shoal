@@ -9,9 +9,7 @@ pub struct StdCommandExecutor;
 
 impl CommandExecutor for StdCommandExecutor {
     fn execute(&self, program: &str, args: &[&str]) -> Result<()> {
-        let status = Command::new(program)
-            .args(args)
-            .status()?;
+        let status = Command::new(program).args(args).status()?;
 
         if status.success() {
             Ok(())

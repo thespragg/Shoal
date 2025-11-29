@@ -37,10 +37,8 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
     }
 
     pub fn up(&self, stack_name: impl Into<String>) -> Result<()> {
-        let (stack_name, override_name) = extract_override(
-            stack_name.into().as_str(),
-            &self.stacks,
-        );
+        let (stack_name, override_name) =
+            extract_override(stack_name.into().as_str(), &self.stacks);
 
         let stack = self.stacks.get(&stack_name).ok_or_else(|| {
             anyhow::anyhow!("Failed to find a stack with the name '{}'.", stack_name)
@@ -95,9 +93,14 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
         }
 
         let compose_path = self.compose_file_manager.ensure_compose_path(&stack_name)?;
-        self.compose_file_manager.generate_compose_file(&network_name, docker_services, &compose_path)?;
+        self.compose_file_manager.generate_compose_file(
+            &network_name,
+            docker_services,
+            &compose_path,
+        )?;
 
-        let compose_manager = ComposeManager::new(compose_path, stack_name, self.command_executor.clone());
+        let compose_manager =
+            ComposeManager::new(compose_path, stack_name, self.command_executor.clone());
         compose_manager.up()?;
 
         Ok(())
@@ -114,7 +117,8 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
             );
         }
 
-        let compose_manager = ComposeManager::new(compose_path, stack_name, self.command_executor.clone());
+        let compose_manager =
+            ComposeManager::new(compose_path, stack_name, self.command_executor.clone());
         compose_manager.down()?;
         Ok(())
     }
@@ -146,7 +150,7 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
 mod tests {
     use super::*;
     use crate::traits::mocks::{MockCommandExecutor, MockFileSystem, MockPathProvider};
-    use crate::types::service::{Service, ServiceLocation, LocationType};
+    use crate::types::service::{LocationType, Service, ServiceLocation};
     use std::sync::Arc;
 
     fn create_test_service(name: &str) -> Service {
@@ -175,7 +179,13 @@ mod tests {
         services.insert("service2".to_string(), create_test_service("service2"));
 
         let mut stacks = HashMap::new();
-        stacks.insert("test-stack".to_string(), create_test_stack("test-stack", vec!["service1".to_string(), "service2".to_string()]));
+        stacks.insert(
+            "test-stack".to_string(),
+            create_test_stack(
+                "test-stack",
+                vec!["service1".to_string(), "service2".to_string()],
+            ),
+        );
 
         let overrides = HashMap::new();
         let file_system = MockFileSystem::new();
@@ -202,7 +212,13 @@ mod tests {
         services.insert("service1".to_string(), create_test_service("service1"));
 
         let mut stacks = HashMap::new();
-        stacks.insert("test-stack".to_string(), create_test_stack("test-stack", vec!["service1".to_string(), "missing-service".to_string()]));
+        stacks.insert(
+            "test-stack".to_string(),
+            create_test_stack(
+                "test-stack",
+                vec!["service1".to_string(), "missing-service".to_string()],
+            ),
+        );
 
         let overrides = HashMap::new();
         let file_system = MockFileSystem::new();

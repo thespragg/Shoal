@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::{collections::HashMap, path::PathBuf};
 
 use crate::traits::{FileSystem, PathProvider};
@@ -28,8 +29,11 @@ impl<FS: FileSystem, PP: PathProvider> ComposeFileManager<FS, PP> {
         compose_path: &PathBuf,
     ) -> Result<()> {
         let mut networks = HashMap::new();
-        networks.insert(network_name.to_string(), Some(DockerNetwork::new(network_name.to_string())));
-        
+        networks.insert(
+            network_name.to_string(),
+            Some(DockerNetwork::new(network_name.to_string())),
+        );
+
         debug!("Generating docker compose object.");
         let compose = DockerComposeFile {
             services: docker_services,
@@ -54,15 +58,19 @@ impl<FS: FileSystem, PP: PathProvider> ComposeFileManager<FS, PP> {
     }
 
     pub fn compose_file_path(&self, stack_name: &str) -> Result<PathBuf> {
-        Ok(self.stack_dir(stack_name)?.join("docker-compose.generated.yml"))
+        Ok(self
+            .stack_dir(stack_name)?
+            .join("docker-compose.generated.yml"))
     }
 
-    pub fn file_exists(&self, path: &PathBuf) -> bool {
+    pub fn file_exists(&self, path: &Path) -> bool {
         self.file_system.exists(path)
     }
 
     fn stack_dir(&self, stack_name: &str) -> Result<PathBuf> {
-        let base_dir = self.path_provider.data_local_dir()?
+        let base_dir = self
+            .path_provider
+            .data_local_dir()?
             .join("shoal")
             .join("stacks")
             .join(stack_name);
@@ -70,4 +78,3 @@ impl<FS: FileSystem, PP: PathProvider> ComposeFileManager<FS, PP> {
         Ok(base_dir)
     }
 }
-

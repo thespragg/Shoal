@@ -1,9 +1,7 @@
 use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
+use std::path::Path;
+use std::{collections::HashMap, path::PathBuf};
 use tracing::{debug, warn};
 
 use crate::traits::{FileSystem, PathProvider};
@@ -51,7 +49,9 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
             "Overrides",
             "overrides",
             "Stack override detected.",
-            |stack_override: &StackOverride| format!("{}-{}", &stack_override.stack, &stack_override.name),
+            |stack_override: &StackOverride| {
+                format!("{}-{}", &stack_override.stack, &stack_override.name)
+            },
         )
     }
 
@@ -130,7 +130,9 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
                 })?;
                 let name = name_extractor(&item);
 
-                if let Some((previous_scope, _)) = items_by_name.insert(name.clone(), (*scope, item)) {
+                if let Some((previous_scope, _)) =
+                    items_by_name.insert(name.clone(), (*scope, item))
+                {
                     warn!(
                         service = %name,
                         previous = %previous_scope,
@@ -153,8 +155,10 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
         Ok(items)
     }
 
-    fn read_yaml_files_in_directory(&self, path: &PathBuf) -> Result<Vec<(PathBuf, String)>> {
-        let entries = self.file_system.read_dir(path)
+    fn read_yaml_files_in_directory(&self, path: &Path) -> Result<Vec<(PathBuf, String)>> {
+        let entries = self
+            .file_system
+            .read_dir(path)
             .with_context(|| format!("Failed to read directory: {}", path.display()))?;
 
         let mut result = Vec::new();

@@ -6,7 +6,7 @@ use serde::Deserialize;
 pub struct StackOverride {
     pub name: String,
     pub stack: String,
-    description: String,
+    _description: String,
     pub overrides: HashMap<String, Override>,
 }
 
