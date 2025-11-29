@@ -1,15 +1,10 @@
 use std::collections::HashMap;
 
-use crate::types::{
-    docker_service::DockerService, stack::Stack, stack_override::StackOverride,
-};
+use crate::types::{docker_service::DockerService, stack::Stack, stack_override::StackOverride};
 
 use tracing::debug;
 
-pub fn extract_override(
-    input: &str,
-    stacks: &HashMap<String, Stack>,
-) -> (String, Option<String>) {
+pub fn extract_override(input: &str, stacks: &HashMap<String, Stack>) -> (String, Option<String>) {
     let parts: Vec<&str> = input.split('.').collect();
 
     for i in (1..=parts.len()).rev() {
@@ -45,9 +40,12 @@ pub fn apply_overrides(
     }
 }
 
-fn apply_env_override(service: &mut DockerService, service_override: &crate::types::stack_override::Override) {
+fn apply_env_override(
+    service: &mut DockerService,
+    service_override: &crate::types::stack_override::Override,
+) {
     if let Some(env) = &service_override.env {
-        let service_env = service.environment.clone().unwrap_or_else(HashMap::new);
+        let service_env = service.environment.clone().unwrap_or_default();
         let merged_env = merge_hashmaps(&service_env, env);
         debug!("  environment: {} variables set/overridden", env.len());
         for (key, value) in env {
@@ -57,13 +55,16 @@ fn apply_env_override(service: &mut DockerService, service_override: &crate::typ
     }
 }
 
-fn apply_ports_override(service: &mut DockerService, service_override: &crate::types::stack_override::Override) {
+fn apply_ports_override(
+    service: &mut DockerService,
+    service_override: &crate::types::stack_override::Override,
+) {
     if let Some(ports) = &service_override.ports {
         let mut service_ports = service
             .ports
             .as_ref()
             .map(|v| v.to_vec())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
 
         debug!("  ports: {} port(s) set/overridden", ports.len());
         for port_str in ports {
@@ -75,9 +76,7 @@ fn apply_ports_override(service: &mut DockerService, service_override: &crate::t
                 port_str.clone()
             };
 
-            if let Some(existing) =
-                service_ports.iter_mut().find(|p| **p == internal_port)
-            {
+            if let Some(existing) = service_ports.iter_mut().find(|p| **p == internal_port) {
                 debug!("      (replaced existing port mapping)");
                 *existing = port_str.clone();
             } else {
@@ -89,27 +88,36 @@ fn apply_ports_override(service: &mut DockerService, service_override: &crate::t
     }
 }
 
-fn apply_command_override(service: &mut DockerService, service_override: &crate::types::stack_override::Override) {
+fn apply_command_override(
+    service: &mut DockerService,
+    service_override: &crate::types::stack_override::Override,
+) {
     if let Some(command) = &service_override.command {
         debug!("  command: {:?}", command);
         service.command = Some(command.clone());
     }
 }
 
-fn apply_entrypoint_override(service: &mut DockerService, service_override: &crate::types::stack_override::Override) {
+fn apply_entrypoint_override(
+    service: &mut DockerService,
+    service_override: &crate::types::stack_override::Override,
+) {
     if let Some(entrypoint) = &service_override.entrypoint {
         debug!("  entrypoint: {:?}", entrypoint);
         service.entrypoint = Some(entrypoint.clone());
     }
 }
 
-fn apply_volumes_override(service: &mut DockerService, service_override: &crate::types::stack_override::Override) {
+fn apply_volumes_override(
+    service: &mut DockerService,
+    service_override: &crate::types::stack_override::Override,
+) {
     if let Some(volumes) = &service_override.volumes {
         let mut service_volumes = service
             .volumes
             .as_ref()
             .map(|v| v.to_vec())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
 
         debug!("  volumes: {} volume(s) added", volumes.len());
         for volume in volumes {
@@ -138,11 +146,14 @@ mod tests {
     #[test]
     fn test_extract_override_exact_match() {
         let mut stacks = HashMap::new();
-        stacks.insert("my-stack".to_string(), Stack {
-            name: "my-stack".to_string(),
-            description: "Test stack".to_string(),
-            services: vec![],
-        });
+        stacks.insert(
+            "my-stack".to_string(),
+            Stack {
+                name: "my-stack".to_string(),
+                description: "Test stack".to_string(),
+                services: vec![],
+            },
+        );
 
         let (stack_name, override_name) = extract_override("my-stack", &stacks);
         assert_eq!(stack_name, "my-stack");
@@ -152,11 +163,14 @@ mod tests {
     #[test]
     fn test_extract_override_with_override() {
         let mut stacks = HashMap::new();
-        stacks.insert("my-stack".to_string(), Stack {
-            name: "my-stack".to_string(),
-            description: "Test stack".to_string(),
-            services: vec![],
-        });
+        stacks.insert(
+            "my-stack".to_string(),
+            Stack {
+                name: "my-stack".to_string(),
+                description: "Test stack".to_string(),
+                services: vec![],
+            },
+        );
 
         let (stack_name, override_name) = extract_override("my-stack.dev", &stacks);
         assert_eq!(stack_name, "my-stack");
@@ -166,16 +180,22 @@ mod tests {
     #[test]
     fn test_extract_override_nested() {
         let mut stacks = HashMap::new();
-        stacks.insert("my".to_string(), Stack {
-            name: "my".to_string(),
-            description: "Test stack".to_string(),
-            services: vec![],
-        });
-        stacks.insert("my.stack".to_string(), Stack {
-            name: "my.stack".to_string(),
-            description: "Test stack".to_string(),
-            services: vec![],
-        });
+        stacks.insert(
+            "my".to_string(),
+            Stack {
+                name: "my".to_string(),
+                description: "Test stack".to_string(),
+                services: vec![],
+            },
+        );
+        stacks.insert(
+            "my.stack".to_string(),
+            Stack {
+                name: "my.stack".to_string(),
+                description: "Test stack".to_string(),
+                services: vec![],
+            },
+        );
 
         // Should match the longest stack name
         let (stack_name, override_name) = extract_override("my.stack.dev", &stacks);
