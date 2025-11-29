@@ -2,13 +2,17 @@ use anyhow::{Context, Result};
 use serde::de::DeserializeOwned;
 use std::{
     collections::HashMap,
-    env,
-    fs::{self},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 use tracing::{debug, warn};
 
+use crate::traits::{FileSystem, PathProvider};
 use crate::types::{service::Service, stack::Stack, stack_override::StackOverride};
+
+pub struct ConfigLoader<FS: FileSystem, PP: PathProvider> {
+    file_system: FS,
+    path_provider: PP,
+}
 
 #[derive(Clone, Copy, Debug)]
 enum FileScope {
@@ -25,150 +29,153 @@ impl std::fmt::Display for FileScope {
     }
 }
 
-pub fn load_overrides() -> Result<HashMap<String, StackOverride>> {
-    let local_path = env::current_dir()?.join("overrides");
-    let global_path = dirs::home_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
-        .join(".shoal/overrides");
-
-    let search_paths: [(FileScope, PathBuf); 2] = [
-        (FileScope::Global, global_path),
-        (FileScope::Local, local_path),
-    ];
-
-    load_items(
-        &search_paths,
-        "Overrides",
-        "overrides",
-        "Stack override detected.",
-        |stack_override: &StackOverride| format!("{}-{}", &stack_override.stack, &stack_override.name),
-    )
-}
-
-pub fn load_stacks() -> Result<HashMap<String, Stack>> {
-    let local_path = env::current_dir()?.join("stacks");
-    let global_path = dirs::home_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
-        .join(".shoal/stacks");
-
-    let search_paths: [(FileScope, PathBuf); 2] = [
-        (FileScope::Global, global_path),
-        (FileScope::Local, local_path),
-    ];
-
-    load_items(
-        &search_paths,
-        "Stacks",
-        "stack",
-        "Local version of stack detected; using local definition.",
-        |stack: &Stack| stack.name.clone(),
-    )
-}
-
-pub fn load_services() -> Result<HashMap<String, Service>> {
-    let local_path = env::current_dir()?.join("services");
-    let global_path = dirs::home_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not determine home directory"))?
-        .join(".shoal/services");
-
-    let search_paths: [(FileScope, PathBuf); 2] = [
-        (FileScope::Global, global_path),
-        (FileScope::Local, local_path),
-    ];
-
-    load_items(
-        &search_paths,
-        "Services",
-        "service",
-        "Service override detected; using local definition.",
-        |service: &Service| service.service_name.clone(),
-    )
-}
-
-fn load_items<T, F>(
-    search_paths: &[(FileScope, PathBuf)],
-    folder_label: &'static str,
-    item_label: &'static str,
-    override_message: &'static str,
-    name_extractor: F,
-) -> Result<HashMap<String, T>>
-where
-    T: DeserializeOwned,
-    F: Fn(&T) -> String,
-{
-    for (scope, path) in search_paths {
-        if path.exists() {
-            debug!(?path, %scope, "{} folder exists", folder_label);
-        } else {
-            debug!(?path, %scope, "{} folder does not exist", folder_label);
+impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
+    pub fn new(file_system: FS, path_provider: PP) -> Self {
+        Self {
+            file_system,
+            path_provider,
         }
     }
 
-    let mut items_by_name: HashMap<String, (FileScope, T)> = HashMap::new();
+    pub fn load_overrides(&self) -> Result<HashMap<String, StackOverride>> {
+        let local_path = self.path_provider.current_dir()?.join("overrides");
+        let global_path = self.path_provider.home_dir()?.join(".shoal/overrides");
 
-    for (scope, path) in search_paths {
-        if !path.exists() {
-            continue;
-        }
+        let search_paths: [(FileScope, PathBuf); 2] = [
+            (FileScope::Global, global_path),
+            (FileScope::Local, local_path),
+        ];
 
-        for (file_path, contents) in read_yaml_files_in_directory(path)? {
-            let item: T = serde_saphyr::from_str(&contents).with_context(|| {
-                format!(
-                    "Failed to parse {} file: {}",
-                    item_label,
-                    file_path.display()
-                )
-            })?;
-            let name = name_extractor(&item);
+        self.load_items(
+            &search_paths,
+            "Overrides",
+            "overrides",
+            "Stack override detected.",
+            |stack_override: &StackOverride| format!("{}-{}", &stack_override.stack, &stack_override.name),
+        )
+    }
 
-            if let Some((previous_scope, _)) = items_by_name.insert(name.clone(), (*scope, item)) {
-                warn!(
-                    service = %name,
-                    previous = %previous_scope,
-                    current = %scope,
-                    "{}", override_message
-                );
+    pub fn load_stacks(&self) -> Result<HashMap<String, Stack>> {
+        let local_path = self.path_provider.current_dir()?.join("stacks");
+        let global_path = self.path_provider.home_dir()?.join(".shoal/stacks");
+
+        let search_paths: [(FileScope, PathBuf); 2] = [
+            (FileScope::Global, global_path),
+            (FileScope::Local, local_path),
+        ];
+
+        self.load_items(
+            &search_paths,
+            "Stacks",
+            "stack",
+            "Local version of stack detected; using local definition.",
+            |stack: &Stack| stack.name.clone(),
+        )
+    }
+
+    pub fn load_services(&self) -> Result<HashMap<String, Service>> {
+        let local_path = self.path_provider.current_dir()?.join("services");
+        let global_path = self.path_provider.home_dir()?.join(".shoal/services");
+
+        let search_paths: [(FileScope, PathBuf); 2] = [
+            (FileScope::Global, global_path),
+            (FileScope::Local, local_path),
+        ];
+
+        self.load_items(
+            &search_paths,
+            "Services",
+            "service",
+            "Service override detected; using local definition.",
+            |service: &Service| service.service_name.clone(),
+        )
+    }
+}
+
+impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
+    fn load_items<T, F>(
+        &self,
+        search_paths: &[(FileScope, PathBuf)],
+        folder_label: &'static str,
+        item_label: &'static str,
+        override_message: &'static str,
+        name_extractor: F,
+    ) -> Result<HashMap<String, T>>
+    where
+        T: DeserializeOwned,
+        F: Fn(&T) -> String,
+    {
+        for (scope, path) in search_paths {
+            if self.file_system.exists(path) {
+                debug!(?path, %scope, "{} folder exists", folder_label);
             } else {
-                debug!(service = %name, source = %scope, "Loaded {}", item_label);
+                debug!(?path, %scope, "{} folder does not exist", folder_label);
             }
         }
+
+        let mut items_by_name: HashMap<String, (FileScope, T)> = HashMap::new();
+
+        for (scope, path) in search_paths {
+            if !self.file_system.exists(path) {
+                continue;
+            }
+
+            for (file_path, contents) in self.read_yaml_files_in_directory(path)? {
+                let item: T = serde_saphyr::from_str(&contents).with_context(|| {
+                    format!(
+                        "Failed to parse {} file: {}",
+                        item_label,
+                        file_path.display()
+                    )
+                })?;
+                let name = name_extractor(&item);
+
+                if let Some((previous_scope, _)) = items_by_name.insert(name.clone(), (*scope, item)) {
+                    warn!(
+                        service = %name,
+                        previous = %previous_scope,
+                        current = %scope,
+                        "{}", override_message
+                    );
+                } else {
+                    debug!(service = %name, source = %scope, "Loaded {}", item_label);
+                }
+            }
+        }
+
+        let items: HashMap<String, T> = items_by_name
+            .into_iter()
+            .map(|(name, (_, item))| (name, item))
+            .collect();
+
+        debug!("Identified {} unique {} files", items.len(), item_label);
+
+        Ok(items)
     }
 
-    let items: HashMap<String, T> = items_by_name
-        .into_iter()
-        .map(|(name, (_, item))| (name, item))
-        .collect();
+    fn read_yaml_files_in_directory(&self, path: &PathBuf) -> Result<Vec<(PathBuf, String)>> {
+        let entries = self.file_system.read_dir(path)
+            .with_context(|| format!("Failed to read directory: {}", path.display()))?;
 
-    debug!("Identified {} unique {} files", items.len(), item_label);
-
-    Ok(items)
-}
-
-fn read_yaml_files_in_directory(path: &Path) -> Result<Vec<(PathBuf, String)>> {
-    fs::read_dir(path)
-        .with_context(|| format!("Failed to read directory: {}", path.display()))?
-        .map(|entry| {
-            entry
-                .with_context(|| format!("Failed to read directory entry in: {}", path.display()))
-                .map(|e| e.path())
-        })
-        .filter_map(|result| {
-            result
-                .inspect_err(|e| warn!("Skipping invalid directory entry: {}", e))
-                .ok()
-        })
-        .filter(|file_path| file_path.is_file())
-        .filter(|file_path| {
-            file_path
+        let mut result = Vec::new();
+        for file_path in entries {
+            // Check if it's a YAML file
+            let is_yaml = file_path
                 .extension()
                 .and_then(|e| e.to_str())
                 .map(|e| e == "yaml" || e == "yml")
-                .unwrap_or(false)
-        })
-        .map(|file_path| -> Result<(PathBuf, String)> {
-            let contents = fs::read_to_string(&file_path)
-                .with_context(|| format!("Failed to read file: {}", file_path.display()))?;
-            Ok((file_path, contents))
-        })
-        .collect()
+                .unwrap_or(false);
+
+            if is_yaml {
+                match self.file_system.read_file(&file_path) {
+                    Ok(contents) => result.push((file_path, contents)),
+                    Err(e) => {
+                        warn!("Skipping invalid file {}: {}", file_path.display(), e);
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
 }

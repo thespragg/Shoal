@@ -1,31 +1,38 @@
 use std::collections::HashMap;
 
 use crate::{
-    compose::{ensure_compose_path, compose_file_path, generate_compose_file},
+    compose::ComposeFileManager,
     docker::{orchestrator::ComposeManager, service::build_docker_service},
     override_handler::{apply_overrides, extract_override},
+    traits::{CommandExecutor, FileSystem, PathProvider},
     types::{service::Service, stack::Stack, stack_override::StackOverride},
 };
 
 use anyhow::{Result, anyhow, bail};
 use tracing::{debug, error, info};
 
-pub struct StackManager {
+pub struct StackManager<FS: FileSystem, PP: PathProvider> {
     services: HashMap<String, Service>,
     stacks: HashMap<String, Stack>,
     overrides: HashMap<String, StackOverride>,
+    compose_file_manager: ComposeFileManager<FS, PP>,
+    command_executor: std::sync::Arc<dyn CommandExecutor>,
 }
 
-impl StackManager {
+impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
     pub fn new(
         services: HashMap<String, Service>,
         stacks: HashMap<String, Stack>,
         overrides: HashMap<String, StackOverride>,
+        compose_file_manager: ComposeFileManager<FS, PP>,
+        command_executor: std::sync::Arc<dyn CommandExecutor>,
     ) -> Self {
         StackManager {
             services,
             stacks,
             overrides,
+            compose_file_manager,
+            command_executor,
         }
     }
 
@@ -87,10 +94,10 @@ impl StackManager {
             apply_overrides(&mut docker_services, &o);
         }
 
-        let compose_path = ensure_compose_path(&stack_name)?;
-        generate_compose_file(&network_name, docker_services, &compose_path)?;
+        let compose_path = self.compose_file_manager.ensure_compose_path(&stack_name)?;
+        self.compose_file_manager.generate_compose_file(&network_name, docker_services, &compose_path)?;
 
-        let compose_manager = ComposeManager::new(compose_path, stack_name);
+        let compose_manager = ComposeManager::new(compose_path, stack_name, self.command_executor.clone());
         compose_manager.up()?;
 
         Ok(())
@@ -98,8 +105,8 @@ impl StackManager {
 
     pub fn down(&self, stack_name: impl Into<String>) -> Result<()> {
         let stack_name = stack_name.into();
-        let compose_path = compose_file_path(&stack_name)?;
-        if !compose_path.exists() {
+        let compose_path = self.compose_file_manager.compose_file_path(&stack_name)?;
+        if !self.compose_file_manager.file_exists(&compose_path) {
             bail!(
                 "Stack {} is not running; compose file missing at {:?}",
                 stack_name,
@@ -107,7 +114,7 @@ impl StackManager {
             );
         }
 
-        let compose_manager = ComposeManager::new(compose_path, stack_name);
+        let compose_manager = ComposeManager::new(compose_path, stack_name, self.command_executor.clone());
         compose_manager.down()?;
         Ok(())
     }
@@ -135,3 +142,85 @@ impl StackManager {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traits::mocks::{MockCommandExecutor, MockFileSystem, MockPathProvider};
+    use crate::types::service::{Service, ServiceLocation, LocationType};
+    use std::sync::Arc;
+
+    fn create_test_service(name: &str) -> Service {
+        Service {
+            service_name: name.to_string(),
+            source: ServiceLocation {
+                r#type: LocationType::Image,
+                location: "test/image:latest".to_string(),
+            },
+            internal_ports: vec!["8080".to_string()],
+        }
+    }
+
+    fn create_test_stack(name: &str, services: Vec<String>) -> Stack {
+        Stack {
+            name: name.to_string(),
+            description: "Test stack".to_string(),
+            services,
+        }
+    }
+
+    #[test]
+    fn test_validate_stack_services_success() {
+        let mut services = HashMap::new();
+        services.insert("service1".to_string(), create_test_service("service1"));
+        services.insert("service2".to_string(), create_test_service("service2"));
+
+        let mut stacks = HashMap::new();
+        stacks.insert("test-stack".to_string(), create_test_stack("test-stack", vec!["service1".to_string(), "service2".to_string()]));
+
+        let overrides = HashMap::new();
+        let file_system = MockFileSystem::new();
+        let path_provider = MockPathProvider::new();
+        let compose_file_manager = ComposeFileManager::new(file_system, path_provider);
+        let command_executor = Arc::new(MockCommandExecutor::new());
+
+        let manager = StackManager::new(
+            services,
+            stacks,
+            overrides,
+            compose_file_manager,
+            command_executor,
+        );
+
+        let stack = manager.stacks.get("test-stack").unwrap();
+        let result = manager.validate_stack_services("test-stack", stack);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_validate_stack_services_failure() {
+        let mut services = HashMap::new();
+        services.insert("service1".to_string(), create_test_service("service1"));
+
+        let mut stacks = HashMap::new();
+        stacks.insert("test-stack".to_string(), create_test_stack("test-stack", vec!["service1".to_string(), "missing-service".to_string()]));
+
+        let overrides = HashMap::new();
+        let file_system = MockFileSystem::new();
+        let path_provider = MockPathProvider::new();
+        let compose_file_manager = ComposeFileManager::new(file_system, path_provider);
+        let command_executor = Arc::new(MockCommandExecutor::new());
+
+        let manager = StackManager::new(
+            services,
+            stacks,
+            overrides,
+            compose_file_manager,
+            command_executor,
+        );
+
+        let stack = manager.stacks.get("test-stack").unwrap();
+        let result = manager.validate_stack_services("test-stack", stack);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("missing-service"));
+    }
+}

@@ -130,3 +130,73 @@ fn merge_hashmaps(
     result
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::stack::Stack;
+
+    #[test]
+    fn test_extract_override_exact_match() {
+        let mut stacks = HashMap::new();
+        stacks.insert("my-stack".to_string(), Stack {
+            name: "my-stack".to_string(),
+            description: "Test stack".to_string(),
+            services: vec![],
+        });
+
+        let (stack_name, override_name) = extract_override("my-stack", &stacks);
+        assert_eq!(stack_name, "my-stack");
+        assert_eq!(override_name, None);
+    }
+
+    #[test]
+    fn test_extract_override_with_override() {
+        let mut stacks = HashMap::new();
+        stacks.insert("my-stack".to_string(), Stack {
+            name: "my-stack".to_string(),
+            description: "Test stack".to_string(),
+            services: vec![],
+        });
+
+        let (stack_name, override_name) = extract_override("my-stack.dev", &stacks);
+        assert_eq!(stack_name, "my-stack");
+        assert_eq!(override_name, Some("dev".to_string()));
+    }
+
+    #[test]
+    fn test_extract_override_nested() {
+        let mut stacks = HashMap::new();
+        stacks.insert("my".to_string(), Stack {
+            name: "my".to_string(),
+            description: "Test stack".to_string(),
+            services: vec![],
+        });
+        stacks.insert("my.stack".to_string(), Stack {
+            name: "my.stack".to_string(),
+            description: "Test stack".to_string(),
+            services: vec![],
+        });
+
+        // Should match the longest stack name
+        let (stack_name, override_name) = extract_override("my.stack.dev", &stacks);
+        assert_eq!(stack_name, "my.stack");
+        assert_eq!(override_name, Some("dev".to_string()));
+    }
+
+    #[test]
+    fn test_merge_hashmaps() {
+        let mut a = HashMap::new();
+        a.insert("KEY1".to_string(), "value1".to_string());
+        a.insert("KEY2".to_string(), "value2".to_string());
+
+        let mut b = HashMap::new();
+        b.insert("KEY2".to_string(), "new_value2".to_string());
+        b.insert("KEY3".to_string(), "value3".to_string());
+
+        let merged = merge_hashmaps(&a, &b);
+        assert_eq!(merged.get("KEY1"), Some(&"value1".to_string()));
+        assert_eq!(merged.get("KEY2"), Some(&"new_value2".to_string())); // b overrides a
+        assert_eq!(merged.get("KEY3"), Some(&"value3".to_string()));
+        assert_eq!(merged.len(), 3);
+    }
+}
