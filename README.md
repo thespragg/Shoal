@@ -66,19 +66,21 @@ mkdir services && mkdir stacks && mkdir overrides
 ### Service Definitions
 ```yaml
 # ./services/shoal-frontend.yml
-name: shoal-frontend
-source: image # can be Local
-image: nginxdemos/hello:latest # When running from local `path` must be defined.
+name: demo-frontend
+source:
+  type: Image # can be Local
+  image: nginxdemos/hello:latest # When running from local `path` must be defined.
 dependencies:
-  - shoal-backend-1
-  - shoal-backend-2
+  - demo-backend-1
+  - demo-backend-2
 internal_ports:
   - 80
 
 # ./services/shoal-backend-1.yml
-name: shoal-backend-1
-source: image
-image: httpd:latest
+name: demo-backend-1
+source:
+  type: Image
+  image: httpd:latest
 dependencies:
   - postgres
   - subscription-provider
@@ -86,9 +88,10 @@ internal_ports:
   - 5000
 
 # ./services/shoal-backend-2.yml
-name: shoal-backend-2
-source: image
-image: httpd:latest
+name: demo-backend-2
+source:
+  type: Image
+  image: httpd:latest
 dependencies:
   - redis
 internal_ports:
@@ -96,24 +99,27 @@ internal_ports:
   
 # ./services/subscription-provider.yml
 name: subscription-provider
-source: image
-image: httpd:latest
+source: 
+  type: Image
+  image: httpd:latest
 dependencies:
   - postgres
 internal_ports:
   - 5000
      
 # ./services/redis.yml
-name: redis 
-source: image
-image: redis:latest
-internal_ports: 
+name: redis
+source:
+  type: Image
+  image: redis:latest
+internal_ports:
   - 6379
     
 # ./services/postgres.yml
 name: postgres
-source: image
-image: postgres:latest
+source: 
+  type: Image
+  image: postgres:latest
 env:
   POSTGRES_USER: postgres
   POSTGRES_PASSWORD: postgres
@@ -129,12 +135,12 @@ internal_ports:
 Once the services have been defined, you can build stacks. Dependencies are loaded dynamically based on the dependency tree.
 ```yaml
 # ./stacks/full-stack.yml
-name: full-stack
+name: full-demo-stack
 description: A stack containing all of the services
 services:
-  - shoal-frontend # all dependencies will be satisfied
+  - demo-frontend # all dependencies will be satisfied
 overrides:
-  shoal-backend-1:
+  demo-backend-1:
     env:
       - ConnectionString=localhost:5432
       - LoggingLevel=Info
@@ -144,14 +150,14 @@ overrides:
       - LoggingLevel=Info
             
 # ./stacks/feature-stack-1.yml
-name: feature-stack-1
+name: demo-feature-stack-1
 description: A stack with backend-2 excluded
 services:
-  - shoal-frontend
+  - demo-frontend
 exclude:
-  - shoal-backend-2 # shoal-backend-2 and its dependencies will be ignored
+  - demo-backend-2 # demo-backend-2 and its dependencies will be ignored
 overrides:
-  shoal-backend-1:
+  demo-backend-1:
     env:
       - ConnectionString=localhost:5432
       - LoggingLevel=Info
@@ -181,12 +187,12 @@ stack: full-stack
 description: Sets all service log levels to trace
 
 overrides:
-  shoal-backend-1:
+  demo-backend-1:
     env:
-      - LoggingLevel=Trace
-  shoal-backend-2:
+      LoggingLevel: Trace
+  demo-backend-2:
     env:
-      - LoggingLevel=Trace
+      LoggingLevel: Trace
 ```
 
 **Apply an override:**

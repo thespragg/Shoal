@@ -1,0 +1,11 @@
+name: trace-logging
+stack: full-stack
+description: Sets all service log levels to trace
+
+overrides:
+  demo-backend-1:
+    env:
+      LoggingLevel: Trace
+  demo-backend-2:
+    env:
+      LoggingLevel: Trace

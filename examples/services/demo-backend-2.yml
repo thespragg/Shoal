@@ -1,0 +1,8 @@
+name: demo-backend-2
+source:
+  type: Image
+  image: httpd:latest
+dependencies:
+  - redis
+internal_ports:
+  - 5000

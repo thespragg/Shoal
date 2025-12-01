@@ -1,0 +1,9 @@
+name: demo-frontend
+source:
+  type: Image
+  image: nginxdemos/hello:latest
+dependencies:
+  - demo-backend-1
+  - demo-backend-2
+internal_ports:
+  - 80

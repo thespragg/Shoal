@@ -1,0 +1,8 @@
+name: subscription-provider
+source: 
+  type: Image
+  image: httpd:latest
+dependencies:
+  - postgres
+internal_ports:
+  - 5000

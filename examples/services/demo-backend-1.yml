@@ -1,0 +1,9 @@
+name: demo-backend-1
+source:
+  type: Image
+  image: httpd:latest
+dependencies:
+  - postgres
+  - subscription-provider
+internal_ports:
+  - 5000

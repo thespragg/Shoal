@@ -35,8 +35,12 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
         }
     }
 
-    pub fn load_overrides(&self) -> Result<HashMap<String, StackOverride>> {
-        let local_path = self.path_provider.current_dir()?.join("overrides");
+    pub fn load_overrides(&self, path: &Option<PathBuf>) -> Result<HashMap<String, StackOverride>> {
+        let local_path = if let Some(p) = path {
+            p.join("overrides")
+        } else {
+            self.path_provider.current_dir()?.join("overrides")
+        };
         let global_path = self.path_provider.home_dir()?.join(".shoal/overrides");
 
         let search_paths: [(FileScope, PathBuf); 2] = [
@@ -55,8 +59,12 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
         )
     }
 
-    pub fn load_stacks(&self) -> Result<HashMap<String, Stack>> {
-        let local_path = self.path_provider.current_dir()?.join("stacks");
+    pub fn load_stacks(&self, path: &Option<PathBuf>) -> Result<HashMap<String, Stack>> {
+        let local_path = if let Some(p) = path {
+            p.join("stacks")
+        } else {
+            self.path_provider.current_dir()?.join("stacks")
+        };
         let global_path = self.path_provider.home_dir()?.join(".shoal/stacks");
 
         let search_paths: [(FileScope, PathBuf); 2] = [
@@ -73,8 +81,12 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
         )
     }
 
-    pub fn load_services(&self) -> Result<HashMap<String, Service>> {
-        let local_path = self.path_provider.current_dir()?.join("services");
+    pub fn load_services(&self, path: &Option<PathBuf>) -> Result<HashMap<String, Service>> {
+        let local_path = if let Some(p) = path {
+            p.join("services")
+        } else {
+            self.path_provider.current_dir()?.join("services")
+        };
         let global_path = self.path_provider.home_dir()?.join(".shoal/services");
 
         let search_paths: [(FileScope, PathBuf); 2] = [
@@ -87,7 +99,7 @@ impl<FS: FileSystem, PP: PathProvider> ConfigLoader<FS, PP> {
             "Services",
             "service",
             "Service override detected; using local definition.",
-            |service: &Service| service.service_name.clone(),
+            |service: &Service| service.name.clone(),
         )
     }
 }

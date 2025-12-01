@@ -1,0 +1,10 @@
+name: postgres
+source: 
+  type: Image
+  image: postgres:latest
+env:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: postgres
+internal_ports:
+  - 5432

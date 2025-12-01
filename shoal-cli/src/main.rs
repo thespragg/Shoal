@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use shoal_core::{self, create_shoal_manager};
@@ -9,6 +11,9 @@ use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberI
 struct Args {
     #[command(subcommand)]
     pub command: Commands,
+
+    #[arg(short, long)]
+    pub path: Option<PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -24,7 +29,7 @@ fn main() -> Result<()> {
         .init();
 
     let args = Args::parse();
-    let shoal_manager = create_shoal_manager()?;
+    let shoal_manager = create_shoal_manager(&args.path)?;
 
     match args.command {
         Commands::Up { stack_name } => shoal_manager.up(stack_name),

@@ -1,0 +1,11 @@
+name: demo-feature-stack-1
+description: A stack with backend-2 excluded
+services:
+  - demo-frontend
+exclude:
+  - demo-backend-2 # demo-backend-2 and its dependencies will be ignored
+overrides:
+  demo-backend-1:
+    env:
+      - ConnectionString=localhost:5432
+      - LoggingLevel=Info

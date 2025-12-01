@@ -1,0 +1,13 @@
+name: full-demo-stack
+description: A stack containing all of the services
+services:
+  - demo-frontend # all dependencies will be satisfied
+overrides:
+  demo-backend-1:
+    env:
+      - ConnectionString=localhost:5432
+      - LoggingLevel=Info
+  shoal-backend-2:
+    env:
+      - RedisConnection=localhost
+      - LoggingLevel=Info

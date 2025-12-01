@@ -1,0 +1,6 @@
+name: redis
+source:
+  type: Image
+  image: redis:latest
+internal_ports:
+  - 6379

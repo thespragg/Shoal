@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     compose::ComposeFileManager,
@@ -67,22 +67,21 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
             None
         };
 
-        self.validate_stack_services(&stack_name, stack)?;
+        let stack_services = populate_service_list(&stack.services, &self.services)?;
+
+        let all_service_names = flatten_dependencies(&stack_services);
+
+        let all_services = populate_service_list(&all_service_names, &self.services);
 
         debug!("Finding docker services for stack {:?}.", stack.services);
 
         let network_name = format!("{}-network", stack_name.clone());
 
-        let mut docker_services: HashMap<String, _> = stack
-            .services
+        let mut docker_services: HashMap<String, _> = all_services?
             .iter()
-            .map(|service_name| {
-                let service = self
-                    .services
-                    .get(service_name)
-                    .expect("Service should exist (validated above)");
+            .map(|service| {
                 (
-                    service_name.clone(),
+                    service.name.clone(),
                     build_docker_service(service, &stack_name, &network_name),
                 )
             })
@@ -122,45 +121,71 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
         compose_manager.down()?;
         Ok(())
     }
+}
 
-    fn validate_stack_services(&self, stack_name: &str, stack: &Stack) -> Result<()> {
-        let missing: Vec<&String> = stack
-            .services
-            .iter()
-            .filter(|service_name| !self.services.contains_key(*service_name))
-            .collect();
+fn flatten_dependencies(services: &[Service]) -> Vec<String> {
+    let mut dependencies: Vec<_> = services
+        .iter()
+        .flat_map(|s| s.dependencies.clone().unwrap_or_else(Vec::new))
+        .collect();
 
-        if !missing.is_empty() {
-            error!(
-                "Stack '{}' references non-existent services: {:?}",
-                stack_name, missing
-            );
-            return Err(anyhow!(
-                "Stack '{}' references non-existent services: {:?}",
-                stack_name,
-                missing
-            ));
+    dependencies.extend(services.iter().map(|s| s.name.clone()));
+
+    dependencies
+        .into_iter()
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn populate_service_list(
+    services: &[String],
+    registered_services: &HashMap<String, Service>,
+) -> Result<Vec<Service>> {
+    use std::collections::HashSet;
+
+    let mut all_services = HashSet::new();
+    let mut to_process: Vec<String> = services.to_vec();
+
+    while let Some(service_name) = to_process.pop() {
+        if all_services.contains(&service_name) {
+            continue;
         }
 
-        Ok(())
+        let service = registered_services.get(&service_name).ok_or_else(|| {
+            error!("Missing required service: {}", service_name);
+            anyhow!("Missing required service: {}", service_name)
+        })?;
+
+        if let Some(deps) = &service.dependencies {
+            to_process.extend(deps.clone());
+        }
+
+        all_services.insert(service_name);
     }
+
+    let populated_services: Vec<Service> = all_services
+        .iter()
+        .map(|s| registered_services.get(s).cloned().unwrap())
+        .collect();
+
+    Ok(populated_services)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::traits::mocks::{MockCommandExecutor, MockFileSystem, MockPathProvider};
     use crate::types::service::{LocationType, Service, ServiceLocation};
-    use std::sync::Arc;
 
     fn create_test_service(name: &str) -> Service {
         Service {
-            service_name: name.to_string(),
+            name: name.to_string(),
             source: ServiceLocation {
                 r#type: LocationType::Image,
-                location: "test/image:latest".to_string(),
+                image: "test/image:latest".to_string(),
             },
             internal_ports: vec!["8080".to_string()],
+            dependencies: None,
         }
     }
 
@@ -187,22 +212,7 @@ mod tests {
             ),
         );
 
-        let overrides = HashMap::new();
-        let file_system = MockFileSystem::new();
-        let path_provider = MockPathProvider::new();
-        let compose_file_manager = ComposeFileManager::new(file_system, path_provider);
-        let command_executor = Arc::new(MockCommandExecutor::new());
-
-        let manager = StackManager::new(
-            services,
-            stacks,
-            overrides,
-            compose_file_manager,
-            command_executor,
-        );
-
-        let stack = manager.stacks.get("test-stack").unwrap();
-        let result = manager.validate_stack_services("test-stack", stack);
+        let result = populate_service_list(&stacks.get("test-stack").unwrap().services, &services);
         assert!(result.is_ok());
     }
 
@@ -220,22 +230,7 @@ mod tests {
             ),
         );
 
-        let overrides = HashMap::new();
-        let file_system = MockFileSystem::new();
-        let path_provider = MockPathProvider::new();
-        let compose_file_manager = ComposeFileManager::new(file_system, path_provider);
-        let command_executor = Arc::new(MockCommandExecutor::new());
-
-        let manager = StackManager::new(
-            services,
-            stacks,
-            overrides,
-            compose_file_manager,
-            command_executor,
-        );
-
-        let stack = manager.stacks.get("test-stack").unwrap();
-        let result = manager.validate_stack_services("test-stack", stack);
+        let result = populate_service_list(&stacks.get("test-stack").unwrap().services, &services);
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("missing-service"));
     }
