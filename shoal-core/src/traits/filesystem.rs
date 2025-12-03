@@ -27,7 +27,7 @@ impl FileSystem for StdFileSystem {
             .map_err(|e| anyhow!("Failed to read directory {}: {}", path.display(), e))?
             .map(|entry| {
                 entry
-                    .map_err(|e| anyhow!("Failed to read directory entry: {}", e))
+                    .map_err(|e| anyhow!("Failed to read directory entry: {e}"))
                     .map(|e| e.path())
             })
             .collect()

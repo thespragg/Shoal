@@ -11,7 +11,7 @@ pub struct StdPathProvider;
 
 impl PathProvider for StdPathProvider {
     fn current_dir(&self) -> Result<PathBuf> {
-        std::env::current_dir().map_err(|e| anyhow!("Failed to get current directory: {}", e))
+        std::env::current_dir().map_err(|e| anyhow!("Failed to get current directory: {e}"))
     }
 
     fn home_dir(&self) -> Result<PathBuf> {

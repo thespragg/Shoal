@@ -28,7 +28,7 @@ impl ComposeManager {
         info!("Starting container stack.");
 
         let compose_path_str = self.compose_file_path.to_string_lossy().to_string();
-        let args = vec![
+        let args = [
             "compose",
             "--project-name",
             &self.project_name,
@@ -47,7 +47,7 @@ impl ComposeManager {
 
     pub fn down(&self) -> Result<()> {
         let compose_path_str = self.compose_file_path.to_string_lossy().to_string();
-        let args = vec![
+        let args = [
             "compose",
             "--project-name",
             &self.project_name,
