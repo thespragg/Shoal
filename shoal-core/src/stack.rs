@@ -41,7 +41,7 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
             extract_override(stack_name.into().as_str(), &self.stacks);
 
         let stack = self.stacks.get(&stack_name).ok_or_else(|| {
-            anyhow::anyhow!("Failed to find a stack with the name '{}'.", stack_name)
+            anyhow::anyhow!("Failed to find a stack with the name '{stack_name}'.")
         })?;
 
         let active_override = if let Some(o) = override_name {
@@ -50,16 +50,13 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
                 .get(&format!("{}-{}", &stack_name, &o))
                 .ok_or_else(|| {
                     anyhow::anyhow!(
-                        "Failed to find an override for {} with the name '{}'.",
-                        stack_name,
-                        o
+                        "Failed to find an override for {stack_name} with the name '{o}'."
                     )
                 })?
                 .clone();
 
             info!(
-                "Override {} is being used. To see what changes this makes to the stack, run up using verbose mode (-v|--verbose).",
-                o
+                "Override {o} is being used. To see what changes this makes to the stack, run up using verbose mode (-v|--verbose)."
             );
 
             Some(found_override)
@@ -110,11 +107,7 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
         let stack_name = stack_name.into();
         let compose_path = self.compose_file_manager.compose_file_path(&stack_name)?;
         if !self.compose_file_manager.file_exists(&compose_path) {
-            bail!(
-                "Stack {} is not running; compose file missing at {:?}",
-                stack_name,
-                compose_path
-            );
+            bail!("Stack {stack_name} is not running; compose file missing at {compose_path:?}");
         }
 
         let compose_manager =
@@ -131,14 +124,9 @@ impl<FS: FileSystem, PP: PathProvider> StackManager<FS, PP> {
             .collect();
 
         if !missing.is_empty() {
-            error!(
-                "Stack '{}' references non-existent services: {:?}",
-                stack_name, missing
-            );
+            error!("Stack '{stack_name}' references non-existent services: {missing:?}");
             return Err(anyhow!(
-                "Stack '{}' references non-existent services: {:?}",
-                stack_name,
-                missing
+                "Stack '{stack_name}' references non-existent services: {missing:?}"
             ));
         }
 
